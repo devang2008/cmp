@@ -1,0 +1,50 @@
+# Dependencies (never commit these — huge folders)
+node_modules/
+.pnpm-store/
+.pnp
+.pnp.js
+
+# testing
+coverage
+
+# Next.js build output (generated, not source)
+.next/
+out/
+build
+
+# Environment files (contain real secrets)
+.env
+.env.*
+.env*.local
+.env.local
+!.env.local.example
+
+# Supabase temp files
+supabase/.temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Debug logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

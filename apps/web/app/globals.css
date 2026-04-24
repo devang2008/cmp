@@ -1,0 +1,208 @@
+/* ============================================================
+   SHIELD DESIGN SYSTEM — Global CSS Variables & Base Styles
+   Cybersecurity Marketplace · Certification-Focused Design
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* ── Core Palette ── */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+
+  /* ── Primary (Sky Blue) ── */
+  --primary: #38BDF8;
+  --primary-hover: #0EA5E9;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #E0F2FE;
+
+  /* ── Secondary (Slate) ── */
+  --secondary: #334155;
+  --secondary-foreground: #F8FAFC;
+  --secondary-hover: #1E293B;
+
+  /* ── Accent ── */
+  --accent: #F1F5F9;
+  --accent-foreground: #334155;
+
+  /* ── Trust & Verification ── */
+  --verified: #22C55E;
+  --verified-soft: #DCFCE7;
+  --verified-foreground: #15803D;
+  --warning: #F59E0B;
+  --warning-soft: #FEF3C7;
+  --warning-foreground: #92400E;
+  --destructive: #EF4444;
+  --destructive-soft: #FEE2E2;
+  --destructive-foreground: #991B1B;
+
+  /* ── Surfaces ── */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #38BDF8;
+
+  /* ── Cert Badge Colors ── */
+  --cert-oscp: #E11D48;
+  --cert-cissp: #2563EB;
+  --cert-ceh: #7C3AED;
+  --cert-aws: #F97316;
+  --cert-gpen: #0D9488;
+
+  /* ── Spacing & Radius ── */
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Base Reset ── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  line-height: 1.6;
+}
+
+/* ── Shield Badge Animations ── */
+@keyframes shield-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+@keyframes trust-fill {
+  from { width: 0%; }
+  to { width: var(--trust-width, 100%); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+  50% { box-shadow: 0 0 20px 4px rgba(56, 189, 248, 0.15); }
+}
+
+/* ── Utility Classes ── */
+.shield-pulse { animation: shield-pulse 2s ease-in-out infinite; }
+.trust-fill { animation: trust-fill 1s ease-out forwards; }
+.slide-up { animation: slide-up 0.5s ease-out forwards; }
+.fade-in { animation: fade-in 0.3s ease-out forwards; }
+.glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+
+/* ── Certification Badge Styles ── */
+.cert-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.cert-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.cert-oscp { background: #FFF1F2; color: var(--cert-oscp); border: 1px solid #FECDD3; }
+.cert-cissp { background: #EFF6FF; color: var(--cert-cissp); border: 1px solid #BFDBFE; }
+.cert-ceh { background: #F5F3FF; color: var(--cert-ceh); border: 1px solid #DDD6FE; }
+.cert-aws { background: #FFF7ED; color: var(--cert-aws); border: 1px solid #FED7AA; }
+.cert-gpen { background: #F0FDFA; color: var(--cert-gpen); border: 1px solid #99F6E4; }
+
+/* ── Trust Score Ring ── */
+.trust-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 14px;
+  position: relative;
+}
+.trust-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-top-color: var(--verified);
+  border-right-color: var(--verified);
+  animation: spin 2s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Card Hover Effect ── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+/* ── Gradient Backgrounds ── */
+.gradient-shield {
+  background: linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 50%, #F0F9FF 100%);
+}
+.gradient-hero {
+  background: linear-gradient(160deg, #0F172A 0%, #1E293B 40%, #334155 100%);
+}
+.gradient-cta {
+  background: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 100%);
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--muted); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
