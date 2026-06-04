@@ -18,7 +18,7 @@ export default function VendorDealsPage() {
   const { data: deals, isLoading } = useQuery({
     queryKey: ['vendor-deals-list'],
     queryFn: async () => {
-      const res = await fetch('/api/deals/list?role=vendor')
+      const res = await fetch('/api/cmp/deals/list?role=vendor')
       const json = await res.json()
       return json.data || []
     },

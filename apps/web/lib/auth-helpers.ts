@@ -1,54 +1,71 @@
 // ============================================================
 // AUTH HELPERS — server-side user/alias resolution for API routes
+// JWT-based (no Supabase) — reads shield_token cookie
 // ============================================================
-import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { Profile } from '@/lib/types'
+import { verifyToken, type JWTPayload } from '@/lib/auth/jwt'
+import { TOKEN_COOKIE } from '@/lib/auth/session'
+import prisma from '@/lib/prisma/client'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export async function getServerSupabase() {
+/**
+ * Get current session from JWT cookie (for Server Components / API routes)
+ */
+export async function getSession(): Promise<JWTPayload | null> {
   const cookieStore = await cookies()
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() { return cookieStore.getAll() },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        } catch { /* read-only in Server Components */ }
-      },
-    },
-  })
+  const token = cookieStore.get(TOKEN_COOKIE)?.value
+  if (!token) return null
+  try {
+    return await verifyToken(token)
+  } catch {
+    return null
+  }
 }
 
+/**
+ * Get current user profile from JWT (lightweight — no DB call)
+ */
 export async function getCurrentUser() {
-  const supabase = await getServerSupabase()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
+  const session = await getSession()
+  if (!session) return null
+  return {
+    id: session.userId,
+    alias: session.alias,
+    role: session.role,
+  }
+}
+
+/**
+ * Get current profile with full data from DB
+ */
+export async function getCurrentProfile() {
+  const session = await getSession()
+  if (!session) return null
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      id: true,
+      alias: true,
+      role: true,
+      trust_score: true,
+      onboarding_complete: true,
+      created_at: true,
+      updated_at: true,
+    }
+  })
+
   return user
 }
 
-export async function getCurrentProfile(): Promise<Profile | null> {
-  const supabase = await getServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  
-  return data as Profile | null
-}
-
-export async function requireAuth() {
-  const profile = await getCurrentProfile()
-  if (!profile) {
+/**
+ * Require auth — throws if not authenticated.
+ * Returns { userId, alias, role } from JWT.
+ * Used by API routes to gate access.
+ */
+export async function requireAuth(): Promise<JWTPayload> {
+  const session = await getSession()
+  if (!session) {
     throw new Error('Unauthorized')
   }
-  return profile
+  return session
 }

@@ -2,39 +2,48 @@
 // SHIELD LANDING PAGE — Certification-Focused Cybersecurity Marketplace
 // ============================================================
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import prisma from "@/lib/prisma/client";
 
 // ── Server-side data fetching ──
 async function getLandingData() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    // Fetch top vendors from alias_directory
+    const vendors = await prisma.aliasDirectory.findMany({
+      where: { role: "vendor" },
+      orderBy: { trust_score: "desc" },
+      take: 3,
+      select: {
+        alias: true,
+        trust_score: true,
+        cert_badges: true,
+        skills: true,
+        completed_deals: true,
+        response_rate: true,
+        role: true,
+      },
+    });
 
-  // Fetch top vendors from alias_directory
-  const { data: vendors } = await supabase
-    .from("alias_directory")
-    .select("alias, trust_score, cert_badges, skills, completed_deals, response_rate, role")
-    .eq("role", "vendor")
-    .order("trust_score", { ascending: false })
-    .limit(3);
+    // Fetch real stats
+    const vendorCount = await prisma.aliasDirectory.count({
+      where: { role: "vendor" },
+    });
 
-  // Fetch real stats
-  const { count: vendorCount } = await supabase
-    .from("alias_directory")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "vendor");
+    const dealCount = await prisma.deal.count();
 
-  const { count: dealCount } = await supabase
-    .from("deals")
-    .select("*", { count: "exact", head: true });
-
-  return {
-    vendors: vendors || [],
-    stats: {
-      vendors: vendorCount || 0,
-      deals: dealCount || 0,
-    },
-  };
+    return {
+      vendors: vendors || [],
+      stats: {
+        vendors: vendorCount || 0,
+        deals: dealCount || 0,
+      },
+    };
+  } catch {
+    // If DB is not ready, return safe defaults
+    return {
+      vendors: [],
+      stats: { vendors: 0, deals: 0 },
+    };
+  }
 }
 
 const CERTIFICATIONS = [

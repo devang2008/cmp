@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma/client'
 import { notFound } from 'next/navigation'
 import VendorProfileClient from './VendorProfileClient'
 import { getCollection } from '@/lib/mongodb/client'
@@ -16,57 +16,83 @@ export async function generateMetadata({ params }: { params: Promise<{ alias: st
 
 export default async function VendorProfilePage({ params }: { params: Promise<{ alias: string }> }) {
   const { alias } = await params
-  const supabase = await createClient()
 
-  // 1. Fetch profile from Supabase (Trust Score, Joined At, Ratings)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('alias, trust_score, created_at, rating_as_vendor, total_vendor_reviews')
-    .eq('alias', alias)
-    .single()
+  // 1. Fetch user profile from Prisma (using alias)
+  const profile = await prisma.user.findUnique({
+    where: { alias },
+    select: {
+      alias: true,
+      trust_score: true,
+      created_at: true,
+      rating_as_vendor: true,
+      total_vendor_reviews: true,
+    }
+  })
 
   if (!profile) notFound()
 
-  // 2. Fetch alias directory (Cert badges, completion stats)
-  const { data: directory } = await supabase
-    .from('alias_directory')
-    .select('*')
-    .eq('alias', alias)
-    .single()
+  // Convert Date properties to ISO strings for client compatibility
+  const serializedProfile = {
+    ...profile,
+    created_at: profile.created_at.toISOString(),
+  }
 
-  // 3. Fetch certifications
-  const { data: certs } = await supabase
-    .from('certifications')
-    .select('*')
-    .eq('vendor_alias', alias)
-    .eq('verified', true)
+  // 2. Fetch alias directory from Prisma
+  const directory = await prisma.aliasDirectory.findUnique({
+    where: { alias }
+  })
+
+  // 3. Fetch certifications from Prisma
+  const certs = await prisma.certification.findMany({
+    where: {
+      vendor_alias: alias,
+      verified: true,
+    }
+  })
+
+  const serializedCerts = certs.map(c => ({
+    ...c,
+    uploaded_at: c.uploaded_at.toISOString(),
+    verified_at: c.verified_at ? c.verified_at.toISOString() : null,
+  }))
 
   // 4. Fetch rich details from MongoDB
   const col = await getCollection<VendorProfile>('vendor_profiles')
   const mongoProfile = await col.findOne({ alias })
 
-  // 5. Fetch public reviews (buyer→vendor only)
-  const { data: reviewsRaw } = await supabase
-    .from('reviews')
-    .select('rating, comment, created_at')
-    .eq('reviewee_alias', alias)
-    .eq('reviewer_role', 'buyer')
-    .order('created_at', { ascending: false })
-    .limit(20)
+  // Convert MongoDB ObjectID or Date fields if needed for serialization, but usually fine
+  const serializedMongoProfile = mongoProfile ? JSON.parse(JSON.stringify(mongoProfile)) : null
 
-  const vendorReviews = (reviewsRaw || []).map(r => ({
+  // 5. Fetch public reviews from Prisma (buyer→vendor reviews only)
+  const reviewsRaw = await prisma.review.findMany({
+    where: {
+      reviewee_alias: alias,
+      reviewer_role: 'buyer',
+    },
+    select: {
+      rating: true,
+      comment: true,
+      created_at: true,
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+    take: 20,
+  })
+
+  const vendorReviews = reviewsRaw.map(r => ({
     rating: r.rating,
     comment: r.comment,
-    created_at: r.created_at,
+    created_at: r.created_at.toISOString(),
     reviewer_display: 'Anonymous Buyer',
   }))
 
   return (
     <VendorProfileClient 
-      profile={profile} 
+      profile={serializedProfile} 
       directory={directory} 
-      certs={certs || []}
-      mongoProfile={mongoProfile}
+      certs={serializedCerts}
+      mongoProfile={serializedMongoProfile}
       vendorReviews={vendorReviews}
     />
   )

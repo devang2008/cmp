@@ -2,7 +2,9 @@
 
 import { useNotifications } from '@/lib/hooks/use-api'
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Check, MessageSquare, Shield, Handshake, Star, X } from 'lucide-react'
+import { Bell, Check, MessageSquare, Shield, Handshake, Star } from 'lucide-react'
+import { useSocket } from '@/hooks/useSocket'
+import { useAuth } from '@/hooks/useAuth'
 
 const TYPE_ICONS: Record<string, any> = {
   new_match: Shield,
@@ -21,11 +23,28 @@ const TYPE_COLORS: Record<string, string> = {
 }
 
 export default function NotificationBell() {
-  const { data: notifications } = useNotifications() as { data: any[] }
+  const { data: notifications, refetch } = useNotifications() as { data: any[]; refetch: () => void }
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  
+  const { socket } = useSocket()
+  const { alias } = useAuth()
 
   const unread = (notifications || []).filter((n: any) => !n.read)
+
+  // Socket.IO notification events
+  useEffect(() => {
+    if (!socket || !alias) return
+    socket.emit('join-notifications', alias)
+
+    socket.on('new-notification', () => {
+      refetch()
+    })
+
+    return () => {
+      socket.off('new-notification')
+    }
+  }, [socket, alias, refetch])
 
   // Close on outside click
   useEffect(() => {
@@ -38,7 +57,8 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     try {
-      await fetch('/api/notifications', { method: 'PATCH' })
+      await fetch('/api/cmp/notifications', { method: 'PATCH' })
+      refetch()
     } catch { }
   }
 

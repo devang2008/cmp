@@ -18,7 +18,7 @@ export default function BuyerDealsPage() {  // Use a direct Supabase query via A
   const { data: deals, isLoading: dealsLoading } = useQuery({
     queryKey: ['buyer-deals-list'],
     queryFn: async () => {
-      const res = await fetch('/api/deals/list?role=buyer')
+      const res = await fetch('/api/cmp/deals/list?role=buyer')
       const json = await res.json()
       return json.data || []
     },

@@ -38,22 +38,22 @@ async function patcher<T>(url: string, body: unknown): Promise<T> {
 export function useBuyerStats() {
   return useQuery({
     queryKey: ['buyer-stats'],
-    queryFn: () => fetcher('/api/buyer/dashboard/stats'),
-    refetchInterval: 30_000,
+    queryFn: () => fetcher('/api/cmp/buyer/dashboard/stats'),
+    refetchInterval: 60_000,
   })
 }
 
 export function useBuyerRequirements(page = 1) {
   return useQuery({
     queryKey: ['buyer-requirements', page],
-    queryFn: () => fetcher(`/api/buyer/requirements?page=${page}`),
+    queryFn: () => fetcher(`/api/cmp/buyer/requirements?page=${page}`),
   })
 }
 
 export function useBuyerRequirementDetail(id: string) {
   return useQuery({
     queryKey: ['buyer-requirement', id],
-    queryFn: () => fetcher(`/api/buyer/requirements/${id}`),
+    queryFn: () => fetcher(`/api/cmp/buyer/requirements/${id}`),
     enabled: !!id,
   })
 }
@@ -61,7 +61,7 @@ export function useBuyerRequirementDetail(id: string) {
 export function useCreateRequirement() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: unknown) => poster('/api/buyer/requirements', body),
+    mutationFn: (body: unknown) => poster('/api/cmp/buyer/requirements', body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['buyer-requirements'] }) },
   })
 }
@@ -69,7 +69,7 @@ export function useCreateRequirement() {
 export function useUpdateRequirement(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: unknown) => patcher(`/api/buyer/requirements/${id}`, body),
+    mutationFn: (body: unknown) => patcher(`/api/cmp/buyer/requirements/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['buyer-requirements'] })
       qc.invalidateQueries({ queryKey: ['buyer-requirement', id] })
@@ -81,7 +81,7 @@ export function useDeleteRequirement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/buyer/requirements/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/cmp/buyer/requirements/${id}`, { method: 'DELETE' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Delete failed')
       return json.data
@@ -94,22 +94,22 @@ export function useDeleteRequirement() {
 export function useVendorStats() {
   return useQuery({
     queryKey: ['vendor-stats'],
-    queryFn: () => fetcher('/api/vendor/dashboard/stats'),
-    refetchInterval: 30_000,
+    queryFn: () => fetcher('/api/cmp/vendor/dashboard/stats'),
+    refetchInterval: 60_000,
   })
 }
 
 export function useMarketplace(page = 1, sort = 'newest') {
   return useQuery({
     queryKey: ['marketplace', page, sort],
-    queryFn: () => fetcher(`/api/vendor/marketplace?page=${page}&sort=${sort}`),
+    queryFn: () => fetcher(`/api/cmp/vendor/marketplace?page=${page}&sort=${sort}`),
   })
 }
 
 export function useMarketplaceDetail(id: string) {
   return useQuery({
     queryKey: ['marketplace-detail', id],
-    queryFn: () => fetcher(`/api/vendor/marketplace/${id}`),
+    queryFn: () => fetcher(`/api/cmp/vendor/marketplace/${id}`),
     enabled: !!id,
   })
 }
@@ -117,14 +117,14 @@ export function useMarketplaceDetail(id: string) {
 export function useVendorProposals() {
   return useQuery({
     queryKey: ['vendor-proposals'],
-    queryFn: () => fetcher('/api/vendor/proposals'),
+    queryFn: () => fetcher('/api/cmp/vendor/proposals'),
   })
 }
 
 export function useSubmitProposal() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: unknown) => poster('/api/vendor/proposals', body),
+    mutationFn: (body: unknown) => poster('/api/cmp/vendor/proposals', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendor-proposals'] })
       qc.invalidateQueries({ queryKey: ['marketplace'] })
@@ -135,14 +135,14 @@ export function useSubmitProposal() {
 export function useVendorProfile() {
   return useQuery({
     queryKey: ['vendor-profile'],
-    queryFn: () => fetcher('/api/vendor/profile'),
+    queryFn: () => fetcher('/api/cmp/vendor/profile'),
   })
 }
 
 export function useUpdateVendorProfile() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: unknown) => patcher('/api/vendor/profile', body),
+    mutationFn: (body: unknown) => patcher('/api/cmp/vendor/profile', body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor-profile'] }) },
   })
 }
@@ -150,14 +150,14 @@ export function useUpdateVendorProfile() {
 export function useVendorCertifications() {
   return useQuery({
     queryKey: ['vendor-certifications'],
-    queryFn: () => fetcher('/api/vendor/certifications'),
+    queryFn: () => fetcher('/api/cmp/vendor/certifications'),
   })
 }
 
 export function useTrustEvents() {
   return useQuery({
     queryKey: ['trust-events'],
-    queryFn: () => fetcher('/api/vendor/trust/events'),
+    queryFn: () => fetcher('/api/cmp/vendor/trust/events'),
   })
 }
 
@@ -165,16 +165,16 @@ export function useTrustEvents() {
 export function useDealDetail(id: string) {
   return useQuery({
     queryKey: ['deal', id],
-    queryFn: () => fetcher(`/api/deals/${id}`),
+    queryFn: () => fetcher(`/api/cmp/deals/${id}`),
     enabled: !!id,
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   })
 }
 
 export function useCreateDeal() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { proposal_id: string }) => poster('/api/deals/create', body),
+    mutationFn: (body: { proposal_id: string }) => poster('/api/cmp/deals/create', body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['buyer-requirements'] })
       qc.invalidateQueries({ queryKey: ['buyer-stats'] })
@@ -186,7 +186,7 @@ export function useDealTransition(dealId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { action: string; note?: string }) =>
-      poster(`/api/deals/${dealId}/transition`, body),
+      poster(`/api/cmp/deals/${dealId}/transition`, body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['deal', dealId] }) },
   })
 }
@@ -194,7 +194,7 @@ export function useDealTransition(dealId: string) {
 export function useConsentReveal(dealId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => poster(`/api/deals/${dealId}/consent-reveal`, {}),
+    mutationFn: () => poster(`/api/cmp/deals/${dealId}/consent-reveal`, {}),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['deal', dealId] }) },
   })
 }
@@ -204,11 +204,11 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const res = await fetch('/api/notifications')
+      const res = await fetch('/api/cmp/notifications')
       const json = await res.json()
       return json.data || []
     },
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
   })
 }
 
@@ -216,7 +216,7 @@ export function useNotifications() {
 export function useCloseDeal(dealId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => poster(`/api/deals/${dealId}/close`, {}),
+    mutationFn: () => poster(`/api/cmp/deals/${dealId}/close`, {}),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['deal', dealId] }) },
   })
 }
@@ -225,7 +225,7 @@ export function useSubmitReview(dealId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { rating: number; comment?: string }) =>
-      poster(`/api/deals/${dealId}/review`, body),
+      poster(`/api/cmp/deals/${dealId}/review`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deal', dealId] })
       qc.invalidateQueries({ queryKey: ['deal-reviews', dealId] })
@@ -237,7 +237,7 @@ export function useUpdateDealPrice(dealId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { new_price: number }) =>
-      patcher(`/api/deals/${dealId}/price`, body),
+      patcher(`/api/cmp/deals/${dealId}/price`, body),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['deal', dealId] }) },
   })
 }
@@ -245,8 +245,7 @@ export function useUpdateDealPrice(dealId: string) {
 export function useDealReviews(dealId: string) {
   return useQuery({
     queryKey: ['deal-reviews', dealId],
-    queryFn: () => fetcher<any[]>(`/api/deals/${dealId}/reviews`),
+    queryFn: () => fetcher<any[]>(`/api/cmp/deals/${dealId}/reviews`),
     enabled: !!dealId,
   })
 }
-

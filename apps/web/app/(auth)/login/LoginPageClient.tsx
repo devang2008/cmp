@@ -1,55 +1,82 @@
 // ============================================================
 // LOGIN PAGE CLIENT — Interactive login form with SHIELD styling
+// Uses /api/cmp/auth/login (JWT-based, no Supabase)
 // ============================================================
 "use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 
 export function LoginPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard/buyer";
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [isUnverified, setIsUnverified] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendStatus(null);
+    try {
+      const res = await fetch("/api/cmp/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResendStatus("Verification email resent. Check your inbox.");
+      } else {
+        setResendStatus(data.error || "Failed to resend email.");
+      }
+    } catch {
+      setResendStatus("Failed to resend email.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setResendStatus(null);
 
     try {
-      const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch("/api/cmp/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (authError) {
-        setError(authError.message);
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result.error || "Login failed");
+        if (res.status === 403 && result.code === 'EMAIL_NOT_VERIFIED') {
+          setIsUnverified(true);
+        } else {
+          setIsUnverified(false);
+        }
         return;
       }
 
-      if (data.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, onboarding_complete")
-          .eq("id", data.user.id)
-          .single();
+      setIsUnverified(false);
 
-        if (profile && !profile.onboarding_complete) {
-          router.push("/onboard");
-        } else if (profile) {
-          router.push(redirectTo || `/dashboard/${profile.role}`);
-        } else {
-          router.push(redirectTo);
-        }
-        router.refresh();
+      const { role, onboarding_complete } = result.data;
+
+      // Use window.location for full reload so cookie is read
+      if (!onboarding_complete) {
+        window.location.href = '/onboard';
+      } else {
+        window.location.href = redirectTo || `/dashboard/${role}`;
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -75,11 +102,30 @@ export function LoginPageClient() {
       <div className="bg-white rounded-xl border border-[var(--border)] shadow-card p-8">
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-[var(--destructive-soft)] text-[var(--destructive-foreground)] text-sm font-medium">
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-              </svg>
-              {error}
+            <div className="flex flex-col gap-2 p-3.5 rounded-lg bg-[var(--destructive-soft)] text-[var(--destructive-foreground)] text-sm font-medium">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+              {isUnverified && (
+                <div className="mt-1 border-t border-[var(--destructive-foreground)]/10 pt-2 flex flex-col gap-1 text-left">
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="text-xs font-semibold text-[var(--primary-hover)] hover:underline disabled:opacity-50 inline-block w-fit"
+                  >
+                    {resending ? "Resending..." : "Resend verification email"}
+                  </button>
+                  {resendStatus && (
+                    <p className="mt-1 text-xs text-[var(--verified)] font-semibold">
+                      {resendStatus}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

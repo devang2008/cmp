@@ -1,5 +1,5 @@
 // ============================================================
-// MONGODB CLIENT — Connection singleton with pooling
+// MONGODB CLIENT — Optimized connection singleton with pooling
 // ============================================================
 import { MongoClient, type Db, type Collection, type Document } from 'mongodb'
 
@@ -22,9 +22,11 @@ function getClientPromise(): Promise<MongoClient> {
   const options = {
     maxPoolSize: 10,
     minPoolSize: 2,
-    maxIdleTimeMS: 30000,
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 30000,
+    maxIdleTimeMS: 60000,          // Keep idle connections alive 60s (was 30s)
+    connectTimeoutMS: 5000,        // Fail fast on connect (was 10s)
+    socketTimeoutMS: 15000,        // Fail fast on socket (was 30s)
+    serverSelectionTimeoutMS: 5000, // Don't wait long for server selection
+    compressors: ['zstd', 'snappy', 'zlib'] as any, // Compress payloads over the wire
   }
 
   if (process.env.NODE_ENV === 'development') {
@@ -50,6 +52,13 @@ export async function getCollection<T extends Document>(
 ): Promise<Collection<T>> {
   const db = await getMongoDb()
   return db.collection<T>(name)
+}
+
+// Pre-warm the connection on module load (non-blocking)
+if (MONGODB_URI) {
+  getClientPromise().catch(() => {
+    // Silently fail — connection will retry on first real request
+  })
 }
 
 const mongoClient = { getClientPromise }

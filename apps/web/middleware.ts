@@ -1,45 +1,74 @@
 // ============================================================
 // NEXT.JS MIDDLEWARE — Route protection + role-based isolation
+// JWT-based auth (no Supabase)
 // ============================================================
 import { type NextRequest, NextResponse } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { verifyToken } from '@/lib/auth/jwt'
+import { TOKEN_COOKIE } from '@/lib/auth/session'
 
 export async function middleware(request: NextRequest) {
   try {
-    const { user, supabaseResponse, supabase } = await updateSession(request)
     const pathname = request.nextUrl.pathname
+    console.log(`[MIDDLEWARE] Request Path: ${pathname}`)
 
-    // Public routes — allow without auth
-    const publicPaths = ['/', '/login', '/signup', '/onboard', '/marketplace', '/vendor']
-    const isPublic = publicPaths.some(path => pathname === path)
-
-    if (isPublic) {
-      return supabaseResponse
+    // ── Fast path: skip middleware for public API routes ──
+    const isPublicApi = pathname.startsWith('/api/cmp/auth/') ||
+                        pathname === '/api/cmp/alias/check'
+    if (isPublicApi) {
+      return NextResponse.next()
     }
 
-    // Protected routes — redirect to login if no user
-    if (!user && pathname.startsWith('/dashboard')) {
+    // ── Fast path: skip middleware for all other API routes (they do their own auth) ──
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.next()
+    }
+
+    // ── Public page routes — no auth required ──
+    const publicPaths = ['/', '/login', '/signup', '/marketplace']
+    const isPublic = publicPaths.some(path => pathname === path) ||
+                     pathname.startsWith('/vendor/')
+
+    if (isPublic) {
+      return NextResponse.next()
+    }
+
+    // ── Protected routes: read JWT from cookie ──
+    const token = request.cookies.get(TOKEN_COOKIE)?.value
+    console.log(`[MIDDLEWARE] Token cookie value: ${token ? (token.substring(0, 15) + '...') : 'undefined'}`)
+
+    if (!token && (pathname.startsWith('/dashboard') || pathname === '/onboard')) {
+      console.log(`[MIDDLEWARE] No token found. Redirecting to /login from ${pathname}`)
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/login'
       redirectUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // ── Role-based dashboard isolation ──
-    if (user && pathname.startsWith('/dashboard')) {
-      // 1. Try JWT metadata (zero-latency)
-      let role = user.user_metadata?.role as string | undefined
+    if (!token) {
+      return NextResponse.next()
+    }
 
-      // 2. Fallback for old accounts without role in metadata
-      if (!role) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        role = profile?.role
+    // Verify JWT
+    let payload
+    try {
+      payload = await verifyToken(token)
+      console.log(`[MIDDLEWARE] Token verified successfully. Payload: ${JSON.stringify(payload)}`)
+    } catch (err: any) {
+      console.error(`[MIDDLEWARE] Token verification failed! Error: ${err?.message || err}`)
+      // Invalid/expired token → redirect to login for protected routes
+      if (pathname.startsWith('/dashboard') || pathname.startsWith('/deal/') || pathname === '/onboard') {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/login'
+        redirectUrl.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(redirectUrl)
       }
+      return NextResponse.next()
+    }
 
+    const role = payload.role
+
+    // ── Role-based dashboard isolation ──
+    if (pathname.startsWith('/dashboard')) {
       // /dashboard alone → redirect to correct dashboard
       if (pathname === '/dashboard') {
         const redirectUrl = request.nextUrl.clone()
@@ -62,15 +91,17 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    return supabaseResponse
-  } catch {
-    // If Supabase is unreachable, pass through to avoid breaking the app
+    return NextResponse.next()
+  } catch (err: any) {
+    console.error(`[MIDDLEWARE ERROR] Global middleware catch: ${err?.message || err}`)
+    // If anything fails, pass through to avoid breaking the app
     return NextResponse.next()
   }
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Only match page routes, skip all static files and Next.js internals
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$).*)',
   ],
 }

@@ -1,15 +1,15 @@
 // ============================================================
 // useProfile Hook — Profile data fetching and updates
+// JWT-based (no Supabase) — fetches from /api/cmp/auth/me
 // ============================================================
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { Profile, AliasDirectory } from '@/types'
+import type { Profile } from '@/types'
 
 interface UseProfileReturn {
   profile: Profile | null
-  aliasInfo: AliasDirectory | null
+  aliasInfo: any | null
   isLoading: boolean
   error: string | null
   refetch: () => Promise<void>
@@ -17,9 +17,8 @@ interface UseProfileReturn {
 }
 
 export function useProfile(userId?: string): UseProfileReturn {
-  const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [aliasInfo, setAliasInfo] = useState<AliasDirectory | null>(null)
+  const [aliasInfo, setAliasInfo] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,30 +32,31 @@ export function useProfile(userId?: string): UseProfileReturn {
       setIsLoading(true)
       setError(null)
 
-      // Fetch profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      const res = await fetch('/api/cmp/auth/me', {
+        credentials: 'include',
+      })
 
-      if (profileError) {
-        throw new Error(profileError.message)
+      if (!res.ok) {
+        throw new Error('Failed to fetch profile')
       }
 
-      setProfile(profileData as Profile)
-
-      // Fetch alias directory info
-      if (profileData?.alias) {
-        const { data: aliasData, error: aliasError } = await supabase
-          .from('alias_directory')
-          .select('*')
-          .eq('alias', profileData.alias)
-          .single()
-
-        if (!aliasError && aliasData) {
-          setAliasInfo(aliasData as AliasDirectory)
-        }
+      const { data } = await res.json()
+      if (data && data.profile) {
+        setProfile(data.profile as Profile)
+        // Set aliasInfo to a fallback shape representing user's rating/trust data
+        setAliasInfo({
+          alias: data.profile.alias,
+          role: data.profile.role,
+          trust_score: data.profile.trust_score,
+          cert_badges: [],
+          skills: [],
+          completed_deals: 0,
+          response_rate: 100,
+          rating_as_vendor: data.profile.rating_as_vendor,
+          rating_as_buyer: data.profile.rating_as_buyer,
+          total_vendor_reviews: data.profile.total_vendor_reviews,
+          total_buyer_reviews: data.profile.total_buyer_reviews,
+        })
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch profile'
@@ -65,7 +65,7 @@ export function useProfile(userId?: string): UseProfileReturn {
     } finally {
       setIsLoading(false)
     }
-  }, [userId, supabase])
+  }, [userId])
 
   useEffect(() => {
     fetchProfile()
@@ -76,13 +76,15 @@ export function useProfile(userId?: string): UseProfileReturn {
       if (!userId) return
 
       try {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ onboarding_complete: complete })
-          .eq('id', userId)
+        const res = await fetch('/api/cmp/auth/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ onboarding_complete: complete }),
+          credentials: 'include',
+        })
 
-        if (updateError) {
-          throw new Error(updateError.message)
+        if (!res.ok) {
+          throw new Error('Failed to update onboarding status')
         }
 
         // Refresh profile data
@@ -94,7 +96,7 @@ export function useProfile(userId?: string): UseProfileReturn {
         console.error('Onboarding update error:', message)
       }
     },
-    [userId, supabase, fetchProfile]
+    [userId, fetchProfile]
   )
 
   return {

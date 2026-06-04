@@ -2,8 +2,10 @@
 // It can be imported in the root layout or critical server components to fail fast.
 
 const requiredEnvs = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'MONGODB_URI',
+  'MONGODB_DB_NAME',
 ];
 
 export function validateEnv() {
@@ -15,14 +17,14 @@ export function validateEnv() {
 
   if (missingEnvs.length > 0) {
     throw new Error(
-      `❌ Invalid/Missing environment variables: ${missingEnvs.join(', ')}. Please refer to .env.example.`
+      `❌ Invalid/Missing environment variables: ${missingEnvs.join(', ')}. Please refer to .env.local.`
     );
   }
 }
 
-// Export a parsed/validated object if needed
 export const env = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY, // Optional on the client, required for some server tasks
+  DATABASE_URL: process.env.DATABASE_URL as string,
+  JWT_SECRET: process.env.JWT_SECRET as string,
+  MONGODB_URI: process.env.MONGODB_URI as string,
+  MONGODB_DB_NAME: process.env.MONGODB_DB_NAME as string,
 };

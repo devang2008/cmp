@@ -29,7 +29,7 @@ export default function CertificationsPage() {
       formData.set('cert_type', certType)
       if (file) formData.set('file', file)
 
-      const res = await fetch('/api/vendor/certifications/upload', { method: 'POST', body: formData })
+      const res = await fetch('/api/cmp/vendor/certifications/upload', { method: 'POST', body: formData })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
 

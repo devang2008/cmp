@@ -15,7 +15,7 @@ export default function BuyerProposalsPage() {
   const { data: proposals, isLoading } = useQuery({
     queryKey: ['buyer-proposals'],
     queryFn: async () => {
-      const res = await fetch('/api/buyer/proposals')
+      const res = await fetch('/api/cmp/buyer/proposals')
       const json = await res.json()
       return json.data || []
     },

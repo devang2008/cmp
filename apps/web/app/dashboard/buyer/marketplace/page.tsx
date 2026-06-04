@@ -19,7 +19,7 @@ export default function BuyerMarketplacePage() {
   const { data: vendors, isLoading } = useQuery({
     queryKey: ['vendor-marketplace', category],
     queryFn: async () => {
-      const res = await fetch(`/api/marketplace/vendors?category=${encodeURIComponent(category)}`)
+      const res = await fetch(`/api/cmp/marketplace/vendors?category=${encodeURIComponent(category)}`)
       const json = await res.json()
       return json.data || []
     },

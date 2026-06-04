@@ -5,24 +5,20 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function DashboardRedirectPage() {
   const router = useRouter()
+  const { role, isLoading, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    const redirect = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-      const role = user.user_metadata?.role
-      router.push(role === 'vendor' ? '/dashboard/vendor' : '/dashboard/buyer')
+    if (isLoading) return
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
     }
-    redirect()
-  }, [router])
+    router.push(role === 'vendor' ? '/dashboard/vendor' : '/dashboard/buyer')
+  }, [role, isLoading, isAuthenticated, router])
 
   return (
     <div className="flex items-center justify-center h-64">

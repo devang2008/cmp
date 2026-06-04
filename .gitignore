@@ -48,3 +48,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# upload files
+apps/web/uploads/certifications/*
+apps/web/uploads/deliverables/*
+!apps/web/uploads/certifications/.gitkeep
+!apps/web/uploads/deliverables/.gitkeep
+
+# Diagnostic & Audit Files
+eslint-report.json
+parse.js
+allX_files_utf8.txt
+api_files.txt
+api_files_utf8.txt
+app_files_utf8.txt

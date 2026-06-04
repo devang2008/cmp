@@ -4,51 +4,47 @@ import { useParams } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, Shield, Lock, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { useSocket } from '@/hooks/useSocket'
 
 export default function DealChatPage() {
   const { id: dealId } = useParams() as { id: string }
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [myAlias, setMyAlias] = useState('')
   const [deal, setDeal] = useState<any>(null)
   const [sending, setSending] = useState(false)
-  const [myRole, setMyRole] = useState<'buyer' | 'vendor'>('buyer')
+  const [isOtherTyping, setIsOtherTyping] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  const { alias: myAlias, role: myRole } = useAuth()
+  const { socket, isConnected } = useSocket()
+
+  // Fetch messages from Prisma via API
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/cmp/deals/${dealId}/events`)
+      const json = await res.json()
+      if (json.data?.messages) {
+        setMessages(json.data.messages)
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err)
+    }
+  }, [dealId])
 
   // Load deal info and messages
   useEffect(() => {
     const init = async () => {
       try {
         // Get deal info
-        const dealRes = await fetch(`/api/deals/${dealId}`)
+        const dealRes = await fetch(`/api/cmp/deals/${dealId}`)
         const dealJson = await dealRes.json()
         if (dealJson.data?.deal) setDeal(dealJson.data.deal)
 
-        // Get my profile
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('alias, role')
-            .eq('id', user.id)
-            .single()
-          if (profile) {
-            setMyAlias(profile.alias)
-            setMyRole(profile.role as 'buyer' | 'vendor')
-          }
-        }
-
-        // Load existing messages
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('deal_id', dealId)
-          .order('created_at', { ascending: true })
-        
-        if (msgs) setMessages(msgs)
+        // Load messages
+        await fetchMessages()
       } catch (err) {
         console.error('Failed to load chat:', err)
       } finally {
@@ -56,56 +52,119 @@ export default function DealChatPage() {
       }
     }
     init()
-  }, [dealId, supabase])
+  }, [dealId, fetchMessages])
 
-  // Real-time subscription
+  // Socket.IO real-time subscription
   useEffect(() => {
-    const channel = supabase
-      .channel(`chat-${dealId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `deal_id=eq.${dealId}`,
-        },
-        (payload: any) => {
-          setMessages(prev => {
-            // Avoid duplicates
-            if (prev.some(m => m.id === payload.new.id)) return prev
-            return [...prev, payload.new]
-          })
-        }
-      )
-      .subscribe()
+    if (!socket || !dealId) return
+    
+    // Join deal room
+    socket.emit('join-deal', dealId)
 
-    return () => { supabase.removeChannel(channel) }
-  }, [dealId, supabase])
+    // Listen for new messages
+    socket.on('new-message', (message: any) => {
+      setMessages(prev => {
+        if (prev.some(m => m.id === message.id)) return prev
+        return [...prev, message]
+      })
+    })
+
+    // Listen for typing indicator
+    socket.on('user-typing', (data: { alias: string; isTyping: boolean }) => {
+      if (data.alias !== myAlias) {
+        setIsOtherTyping(data.isTyping)
+      }
+    })
+
+    return () => {
+      socket.emit('leave-deal', dealId)
+      socket.off('new-message')
+      socket.off('user-typing')
+    }
+  }, [socket, dealId, myAlias])
 
   // Auto-scroll
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [messages])
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages, isOtherTyping])
+
+  // Handle typing indicator
+  const handleInputChange = (value: string) => {
+    setNewMessage(value)
+    if (!socket || !myAlias) return
+
+    socket.emit('typing', {
+      dealId,
+      alias: myAlias,
+      isTyping: true
+    })
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current)
+    }
+
+    typingTimerRef.current = setTimeout(() => {
+      socket.emit('typing', {
+        dealId,
+        alias: myAlias,
+        isTyping: false
+      })
+    }, 1500)
+  }
 
   const handleSend = useCallback(async () => {
-    if (!newMessage.trim() || sending) return
+    if (!newMessage.trim() || sending || !myAlias) return
     setSending(true)
     try {
-      const { error } = await supabase.from('messages').insert({
+      const res = await fetch(`/api/cmp/deals/${dealId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'MESSAGE',
+          content: newMessage.trim(),
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to send')
+      const json = await res.json()
+
+      const insertedMessage = json.data?.message || {
+        id: Math.random().toString(),
         deal_id: dealId,
         sender_alias: myAlias,
         encrypted_content: newMessage.trim(),
         message_type: 'text',
-      })
-      if (error) throw error
+        created_at: new Date().toISOString()
+      }
+
+      // Emit via socket so the OTHER party gets it instantly
+      if (socket) {
+        socket.emit('send-message', {
+          dealId,
+          message: {
+            id: insertedMessage.id,
+            deal_id: dealId,
+            sender_alias: myAlias,
+            encrypted_content: newMessage.trim(),
+            message_type: 'text',
+            created_at: new Date().toISOString()
+          }
+        })
+      }
+
       setNewMessage('')
+      // Instantly append to local messages for latency-free typing
+      setMessages(prev => {
+        if (prev.some(m => m.id === insertedMessage.id)) return prev
+        return [...prev, insertedMessage]
+      })
     } catch (err: any) {
       console.error('Failed to send:', err)
     } finally {
       setSending(false)
     }
-  }, [newMessage, sending, dealId, myAlias, supabase])
+  }, [newMessage, sending, dealId, myAlias, socket])
 
   if (loading) {
     return (
@@ -116,7 +175,7 @@ export default function DealChatPage() {
   }
 
   // Determine back link based on role
-  const backLink = `/dashboard/${myRole}/deals/${dealId}`
+  const backLink = `/dashboard/${myRole || 'buyer'}/deals/${dealId}`
 
   return (
     <div className="h-screen flex flex-col bg-slate-900">
@@ -135,7 +194,7 @@ export default function DealChatPage() {
               </span>
             </p>
             <p className="text-emerald-400 text-xs flex items-center gap-1">
-              <Shield className="w-3 h-3" /> End-to-End Encrypted
+              <Shield className="w-3 h-3" /> {isConnected ? 'Connected — End-to-End Encrypted' : 'Reconnecting...'}
             </p>
           </div>
         </div>
@@ -145,7 +204,7 @@ export default function DealChatPage() {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <Shield className="w-16 h-16 text-slate-700 mb-4" />
@@ -161,7 +220,7 @@ export default function DealChatPage() {
               return (
                 <div key={msg.id} className="flex justify-center">
                   <div className="px-4 py-1.5 bg-slate-800/50 border border-slate-700/30 rounded-full">
-                    <p className="text-xs text-slate-400 text-center">{msg.encrypted_content}</p>
+                    <p className="text-xs text-slate-400 text-center">{msg.encrypted_content || msg.content}</p>
                   </div>
                 </div>
               )
@@ -173,7 +232,7 @@ export default function DealChatPage() {
                   ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white'
                   : 'bg-slate-800 border border-slate-700 text-slate-200'}`}>
                   <p className={`text-xs font-mono mb-1 ${isMe ? 'text-cyan-200/70' : 'text-cyan-400/70'}`}>{msg.sender_alias}</p>
-                  <p className="text-sm whitespace-pre-wrap">{msg.encrypted_content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{msg.encrypted_content || msg.content}</p>
                   <p className={`text-xs mt-1 ${isMe ? 'text-cyan-200/50' : 'text-slate-500'}`}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -182,12 +241,24 @@ export default function DealChatPage() {
             )
           })
         )}
+        
+        {/* Typing indicator bubble */}
+        {isOtherTyping && (
+          <div className="flex justify-start">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex items-center gap-1">
+              <span className="text-xs text-slate-400 italic">Typing</span>
+              <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-100" />
+              <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-200" />
+              <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-bounce delay-300" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Input */}
       <div className="bg-slate-800/80 backdrop-blur border-t border-slate-700/50 px-4 py-3">
         <div className="flex gap-2">
-          <input type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
+          <input type="text" value={newMessage} onChange={e => handleInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
             className="flex-1 bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 outline-none text-sm"
             placeholder="Type a secure message..." disabled={sending} />

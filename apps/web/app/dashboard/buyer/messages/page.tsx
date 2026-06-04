@@ -8,7 +8,7 @@ export default function BuyerMessagesPage() {
   const { data: deals, isLoading } = useQuery({
     queryKey: ['buyer-deals-messages'],
     queryFn: async () => {
-      const res = await fetch('/api/deals/list?role=buyer')
+      const res = await fetch('/api/cmp/deals/list?role=buyer')
       const json = await res.json()
       return (json.data || []).filter((d: any) => !['CANCELLED'].includes(d.status))
     },

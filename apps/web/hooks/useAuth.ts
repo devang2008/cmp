@@ -1,17 +1,15 @@
 // ============================================================
 // useAuth Hook — Core authentication state management
+// JWT-based (no Supabase) — fetches from /api/cmp/auth/me
 // ============================================================
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import type { Profile, UserRole, AuthState } from '@/types'
-import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -22,34 +20,14 @@ export function useAuth() {
     isAuthenticated: false,
   })
 
-  // Fetch profile from Supabase
-  const fetchProfile = useCallback(
-    async (userId: string): Promise<Profile | null> => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
+  // Fetch current session from /api/cmp/auth/me
+  const fetchSession = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cmp/auth/me', {
+        credentials: 'include',
+      })
 
-        if (error) {
-          console.error('Error fetching profile:', error.message)
-          return null
-        }
-
-        return data as Profile
-      } catch (err) {
-        console.error('Failed to fetch profile:', err)
-        return null
-      }
-    },
-    [supabase]
-  )
-
-  // Update state from user object
-  const updateAuthState = useCallback(
-    async (user: User | null) => {
-      if (!user) {
+      if (!res.ok) {
         setState({
           user: null,
           profile: null,
@@ -61,53 +39,53 @@ export function useAuth() {
         return
       }
 
-      const profile = await fetchProfile(user.id)
+      const { data } = await res.json()
 
       setState({
-        user: { id: user.id, email: user.email ?? '' },
-        profile,
-        alias: profile?.alias ?? null,
-        role: (profile?.role as UserRole) ?? null,
+        user: data.user,
+        profile: data.profile as Profile,
+        alias: data.alias,
+        role: data.role as UserRole,
         isLoading: false,
         isAuthenticated: true,
       })
-    },
-    [fetchProfile]
-  )
+    } catch {
+      setState({
+        user: null,
+        profile: null,
+        alias: null,
+        role: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
+    }
+  }, [])
 
-  // Listen for auth state changes
+  // Fetch session on mount
   useEffect(() => {
-    // Get initial session
-    const initAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      await updateAuthState(user)
-    }
-
-    initAuth()
-
-    // Listen for changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      await updateAuthState(session?.user ?? null)
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [supabase.auth, updateAuthState])
+    fetchSession()
+  }, [fetchSession])
 
   // Sign out
   const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut()
+      await fetch('/api/cmp/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      setState({
+        user: null,
+        profile: null,
+        alias: null,
+        role: null,
+        isLoading: false,
+        isAuthenticated: false,
+      })
       router.push('/login')
     } catch (err) {
       console.error('Sign out error:', err)
     }
-  }, [supabase.auth, router])
+  }, [router])
 
   // Require auth — redirect to login if not authenticated
   const requireAuth = useCallback(() => {
@@ -120,5 +98,6 @@ export function useAuth() {
     ...state,
     signOut,
     requireAuth,
+    refreshSession: fetchSession,
   }
 }

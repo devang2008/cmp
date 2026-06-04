@@ -1,7 +1,7 @@
 // ============================================================
 // PUBLIC MARKETPLACE — Browse verified vendors (no auth required)
 // ============================================================
-import { createClient } from '@/lib/supabase/server'
+import prisma from '@/lib/prisma/client'
 import MarketplaceClient from './marketplace-client'
 
 export const dynamic = 'force-dynamic'
@@ -12,14 +12,15 @@ export const metadata = {
 }
 
 export default async function MarketplacePage() {
-  const supabase = await createClient()
+  let vendors: any[] = []
+  try {
+    vendors = await prisma.aliasDirectory.findMany({
+      where: { role: 'vendor' },
+      orderBy: { trust_score: 'desc' },
+    })
+  } catch {
+    // DB not ready
+  }
 
-  // Fetch all active vendors from alias_directory
-  const { data: vendors } = await supabase
-    .from('alias_directory')
-    .select('*')
-    .eq('role', 'vendor')
-    .order('trust_score', { ascending: false })
-
-  return <MarketplaceClient vendors={vendors || []} />
+  return <MarketplaceClient vendors={vendors} />
 }

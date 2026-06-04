@@ -1,5 +1,5 @@
 // ============================================================
-// LOGIN FORM COMPONENT
+// LOGIN FORM COMPONENT (JWT-based, no Supabase)
 // ============================================================
 'use client'
 
@@ -8,7 +8,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,8 +31,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/dashboard/buyer'
-  const supabase = createClient()
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const [serverError, setServerError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -51,32 +49,26 @@ export function LoginForm() {
       setIsSubmitting(true)
       setServerError(null)
 
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      const res = await fetch('/api/cmp/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
       })
 
-      if (error) {
-        setServerError(error.message)
+      const result = await res.json()
+
+      if (!res.ok) {
+        setServerError(result.error || 'Login failed')
         return
       }
 
-      if (authData.user) {
-        // Fetch profile to determine redirect
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, onboarding_complete')
-          .eq('id', authData.user.id)
-          .single()
-
-        if (profile && !profile.onboarding_complete) {
+      if (result.data) {
+        const { role, onboarding_complete } = result.data
+        if (!onboarding_complete) {
           router.push('/onboard')
-        } else if (profile) {
-          router.push(redirectTo || `/dashboard/${profile.role}`)
         } else {
-          router.push(redirectTo)
+          router.push(redirectTo || `/dashboard/${role}`)
         }
-
         router.refresh()
       }
     } catch (err) {

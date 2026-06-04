@@ -5,7 +5,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 type ProfileData = {
   alias: string;
@@ -17,6 +17,7 @@ function OnboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
+  const { alias, role, isLoading: authLoading, isAuthenticated, profile: authProfile } = useAuth();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,47 +25,36 @@ function OnboardPage() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    async function fetchProfile() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("alias, role, onboarding_complete")
-        .eq("id", user.id)
-        .single();
-
-      if (data) {
-        if (data.onboarding_complete) {
-          router.push(`/dashboard/${data.role}`);
-          return;
-        }
-        setProfile(data);
-      }
-      setLoading(false);
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
     }
-    fetchProfile();
-  }, [router]);
+    if (authProfile?.onboarding_complete) {
+      router.push(`/dashboard/${role}`);
+      return;
+    }
+    setProfile({
+      alias: alias || "",
+      role: role || "buyer",
+      onboarding_complete: false,
+    });
+    setLoading(false);
+  }, [authLoading, isAuthenticated, authProfile, alias, role, router]);
 
   const completeOnboarding = async () => {
     setCompleting(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({ onboarding_complete: true })
-        .eq("id", user.id);
-
-      const role = profile?.role || roleParam || "buyer";
-      router.push(`/dashboard/${role}`);
-      router.refresh();
+    try {
+      // Mark onboarding as complete via API
+      await fetch('/api/cmp/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboarding_complete: true }),
+      });
+      const userRole = profile?.role || roleParam || "buyer";
+      window.location.href = `/dashboard/${userRole}`;
+    } catch {
+      setCompleting(false);
     }
   };
 

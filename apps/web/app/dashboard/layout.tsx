@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
 import {
   Shield, Home, Search, FileText, ClipboardList, MessageSquare,
@@ -40,27 +40,14 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [alias, setAlias] = useState("");
-  const [role, setRole] = useState("");
+  const { alias, role, signOut, isLoading, isAuthenticated } = useAuth();
 
-  // Fetch the user's alias and role
+  // Redirect to login if not authenticated
   useEffect(() => {
-    const supabase = createClient();
-    const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("alias, role")
-        .eq("id", user.id)
-        .single();
-      if (profile) {
-        setAlias(profile.alias || "");
-        setRole(profile.role || "");
-      }
-    };
-    loadProfile();
-  }, []);
+    if (!isLoading && !isAuthenticated) {
+      window.location.href = "/login";
+    }
+  }, [isLoading, isAuthenticated]);
 
   // Determine nav based on role (with pathname fallback while role loads)
   const isVendor = role ? role === "vendor" : pathname.startsWith("/dashboard/vendor");
@@ -68,10 +55,26 @@ export default function DashboardLayout({
   const roleLabel = isVendor ? "Vendor" : "Buyer";
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
+    await signOut();
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <svg className="w-8 h-8 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span className="text-sm text-slate-500">Connecting to secure session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex">

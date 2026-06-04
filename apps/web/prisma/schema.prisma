@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password_hash         String
+  alias                 String    @unique
+  role                  String
+  email_verified        Boolean   @default(false)
+  verification_token    String?
+  verification_expires  DateTime?
+  onboarding_complete   Boolean   @default(false)
+  trust_score           Float     @default(0)
+  rating_as_vendor      Float     @default(0)
+  rating_as_buyer       Float     @default(0)
+  total_vendor_reviews  Int       @default(0)
+  total_buyer_reviews   Int       @default(0)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  deals_as_buyer    Deal[]         @relation("BuyerDeals")
+  deals_as_vendor   Deal[]         @relation("VendorDeals")
+  trust_events      TrustEvent[]
+  notifications     Notification[]
+  certifications    Certification[]
+  reviews_given     Review[]       @relation("ReviewerReviews")
+  reviews_received  Review[]       @relation("RevieweeReviews")
+  audit_logs        AuditLog[]
+  chat_keys         ChatKey[]
+  messages          Message[]
+
+  @@map("users")
+}
+
+model AliasDirectory {
+  alias                String   @id
+  role                 String
+  trust_score          Float    @default(0)
+  cert_badges          String[]
+  skills               String[]
+  completed_deals      Int      @default(0)
+  response_rate        Float    @default(100)
+  rating_as_vendor     Float    @default(0)
+  rating_as_buyer      Float    @default(0)
+  total_vendor_reviews Int      @default(0)
+  total_buyer_reviews  Int      @default(0)
+  joined_at            DateTime @default(now())
+
+  @@map("alias_directory")
+}
+
+model Deal {
+  id                      String    @id @default(uuid())
+  buyer_alias             String
+  vendor_alias            String?
+  requirement_id          String?
+  status                  String    @default("POSTED")
+  agreed_price            Float?
+  original_price          Float?
+  currency                String    @default("USD")
+  price_updated_at        DateTime?
+  buyer_consented_reveal  Boolean   @default(false)
+  vendor_consented_reveal Boolean   @default(false)
+  identity_revealed       Boolean   @default(false)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
+  closed_at               DateTime?
+
+  buyer   User  @relation("BuyerDeals", fields: [buyer_alias], references: [alias])
+  vendor  User? @relation("VendorDeals", fields: [vendor_alias], references: [alias])
+
+  deal_events DealEvent[]
+  messages    Message[]
+  chat_keys   ChatKey[]
+  reviews     Review[]
+
+  @@map("deals")
+}
+
+model DealEvent {
+  id          String   @id @default(uuid())
+  deal_id     String
+  event_type  String
+  from_status String?
+  to_status   String?
+  actor_alias String
+  note        String?
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now())
+
+  deal Deal @relation(fields: [deal_id], references: [id])
+
+  @@map("deal_events")
+}
+
+model Message {
+  id                String   @id @default(uuid())
+  deal_id           String
+  sender_alias      String
+  encrypted_content String
+  message_type      String   @default("text")
+  file_url          String?
+  read_at           DateTime?
+  created_at        DateTime @default(now())
+
+  deal   Deal @relation(fields: [deal_id], references: [id])
+  sender User @relation(fields: [sender_alias], references: [alias])
+
+  @@map("messages")
+}
+
+model ChatKey {
+  deal_id    String
+  alias      String
+  public_key String
+  created_at DateTime @default(now())
+
+  deal Deal @relation(fields: [deal_id], references: [id])
+  user User @relation(fields: [alias], references: [alias])
+
+  @@id([deal_id, alias])
+  @@map("chat_keys")
+}
+
+model Certification {
+  id                 String    @id @default(uuid())
+  vendor_alias       String
+  cert_name          String
+  cert_type          String
+  file_url           String?
+  verified           Boolean   @default(false)
+  verification_score Int       @default(0)
+  uploaded_at        DateTime  @default(now())
+  verified_at        DateTime?
+
+  vendor User @relation(fields: [vendor_alias], references: [alias])
+
+  @@map("certifications")
+}
+
+model TrustEvent {
+  id          String   @id @default(uuid())
+  alias       String
+  event_type  String
+  score_delta Float
+  deal_id     String?
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [alias], references: [alias])
+
+  @@map("trust_events")
+}
+
+model Notification {
+  id              String   @id @default(uuid())
+  recipient_alias String
+  type            String
+  content         String
+  ref_id          String?
+  read            Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  recipient User @relation(fields: [recipient_alias], references: [alias])
+
+  @@map("notifications")
+}
+
+model Review {
+  id              String   @id @default(uuid())
+  deal_id         String
+  reviewer_alias  String
+  reviewee_alias  String
+  reviewer_role   String
+  rating          Int
+  comment         String?
+  created_at      DateTime @default(now())
+
+  deal     Deal @relation(fields: [deal_id], references: [id])
+  reviewer User @relation("ReviewerReviews", fields: [reviewer_alias], references: [alias])
+  reviewee User @relation("RevieweeReviews", fields: [reviewee_alias], references: [alias])
+
+  @@unique([deal_id, reviewer_role])
+  @@map("reviews")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  action_type  String
+  actor_alias  String?
+  target_alias String?
+  deal_id      String?
+  metadata     Json     @default("{}")
+  ip_hash      String?
+  created_at   DateTime @default(now())
+
+  actor User? @relation(fields: [actor_alias], references: [alias])
+
+  @@map("audit_logs")
+}
