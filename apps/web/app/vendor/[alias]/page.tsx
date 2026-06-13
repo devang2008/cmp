@@ -42,11 +42,12 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
     where: { alias }
   })
 
-  // 3. Fetch certifications from Prisma
+  // 3. Fetch certifications from Prisma (only show approved certs publicly)
   const certs = await prisma.certification.findMany({
     where: {
       vendor_alias: alias,
       verified: true,
+      review_status: 'approved',
     }
   })
 

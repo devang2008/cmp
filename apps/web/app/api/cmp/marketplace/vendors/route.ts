@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       where: {
         vendor_alias: { in: vendorAliases },
         verified: true,
+        review_status: 'approved',
       },
       select: {
         vendor_alias: true,

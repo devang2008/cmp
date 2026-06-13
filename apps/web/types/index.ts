@@ -2,7 +2,7 @@
 // SHARED TYPESCRIPT TYPES — CYBERSECURITY MARKETPLACE
 // ============================================================
 
-export type UserRole = 'buyer' | 'vendor' | 'admin'
+export type UserRole = 'buyer' | 'vendor' | 'admin' | 'moderator'
 
 export type DealStatus =
   | 'POSTED'

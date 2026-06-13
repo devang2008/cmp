@@ -24,16 +24,18 @@ model User {
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
 
-  deals_as_buyer    Deal[]         @relation("BuyerDeals")
-  deals_as_vendor   Deal[]         @relation("VendorDeals")
-  trust_events      TrustEvent[]
-  notifications     Notification[]
-  certifications    Certification[]
-  reviews_given     Review[]       @relation("ReviewerReviews")
-  reviews_received  Review[]       @relation("RevieweeReviews")
-  audit_logs        AuditLog[]
-  chat_keys         ChatKey[]
-  messages          Message[]
+  deals_as_buyer      Deal[]            @relation("BuyerDeals")
+  deals_as_vendor     Deal[]            @relation("VendorDeals")
+  trust_events        TrustEvent[]
+  notifications       Notification[]
+  certifications      Certification[]   @relation("VendorCertifications")
+  reviews_given       Review[]          @relation("ReviewerReviews")
+  reviews_received    Review[]          @relation("RevieweeReviews")
+  audit_logs          AuditLog[]
+  chat_keys           ChatKey[]
+  messages            Message[]
+  moderator_actions   ModeratorAction[]
+  reviewed_certs      Certification[]   @relation("CertReviewer")
 
   @@map("users")
 }
@@ -139,7 +141,14 @@ model Certification {
   uploaded_at        DateTime  @default(now())
   verified_at        DateTime?
 
-  vendor User @relation(fields: [vendor_alias], references: [alias])
+  // Moderator review fields
+  review_status      String    @default("PENDING")  // PENDING | APPROVED | REJECTED
+  reviewed_by        String?
+  reviewed_at        DateTime?
+  rejection_reason   String?
+
+  vendor   User  @relation("VendorCertifications", fields: [vendor_alias], references: [alias])
+  reviewer User? @relation("CertReviewer", fields: [reviewed_by], references: [alias])
 
   @@map("certifications")
 }
@@ -203,4 +212,22 @@ model AuditLog {
   actor User? @relation(fields: [actor_alias], references: [alias])
 
   @@map("audit_logs")
+}
+
+model ModeratorAction {
+  id              String   @id @default(uuid())
+  moderator_alias String
+  action_type     String   // CERT_APPROVED | CERT_REJECTED | USER_SUSPENDED | USER_WARNED | REQUIREMENT_REMOVED
+  target_type     String   // CERTIFICATION | USER | REQUIREMENT
+  target_id       String
+  reason          String?
+  metadata        Json     @default("{}")
+  created_at      DateTime @default(now())
+
+  moderator User @relation(fields: [moderator_alias], references: [alias])
+
+  @@index([moderator_alias])
+  @@index([target_type, target_id])
+  @@index([action_type])
+  @@map("moderator_actions")
 }

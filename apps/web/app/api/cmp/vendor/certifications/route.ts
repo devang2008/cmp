@@ -10,6 +10,21 @@ export async function GET() {
     const certs = await prisma.certification.findMany({
       where: { vendor_alias: profile.alias },
       orderBy: { uploaded_at: 'desc' },
+      select: {
+        id: true,
+        vendor_alias: true,
+        cert_name: true,
+        cert_type: true,
+        file_url: true,
+        verified: true,
+        review_status: true,
+        verification_score: true,
+        rejection_reason: true,
+        reviewed_by: true,
+        reviewed_at: true,
+        uploaded_at: true,
+        verified_at: true,
+      },
     })
 
     // Return file_url directly (skip signed URL generation for now)

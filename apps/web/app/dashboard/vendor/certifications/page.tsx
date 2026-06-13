@@ -107,33 +107,76 @@ export default function CertificationsPage() {
         <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="animate-pulse h-24 bg-slate-800/50 rounded-xl" />)}</div>
       ) : certs?.length > 0 ? (
         <div className="grid gap-4">
-          {certs.map((cert: any) => (
+          {certs.map((cert: any) => {
+            const isPending = cert.review_status === 'pending'
+            const isApproved = cert.review_status === 'approved'
+            const isRejected = cert.review_status === 'rejected'
+            return (
             <div key={cert.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${cert.verified ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
-                    {cert.verified ? <CheckCircle className="w-5 h-5 text-emerald-400" /> : <Clock className="w-5 h-5 text-amber-400" />}
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    isApproved ? 'bg-emerald-500/20' :
+                    isRejected ? 'bg-red-500/20' :
+                    'bg-amber-500/20'
+                  }`}>
+                    {isApproved ? <CheckCircle className="w-5 h-5 text-emerald-400" /> :
+                     isRejected ? <AlertCircle className="w-5 h-5 text-red-400" /> :
+                     <Clock className="w-5 h-5 text-amber-400" />}
                   </div>
                   <div>
                     <h3 className="text-white font-medium">{cert.cert_name}</h3>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs">{cert.cert_type}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs ${cert.verified ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                        {cert.verified ? 'Verified' : 'Pending Verification'}
-                      </span>
-                      <span className="text-xs text-slate-500">+{cert.verification_score} pts</span>
+                      {isPending && (
+                        <span className="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Under Moderator Review
+                        </span>
+                      )}
+                      {isApproved && (
+                        <>
+                          <span className="px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" /> Verified ✓
+                          </span>
+                          <span className="text-xs text-emerald-400 font-medium">+{cert.verification_score} trust pts</span>
+                        </>
+                      )}
+                      {isRejected && (
+                        <span className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> Not Approved
+                        </span>
+                      )}
                     </div>
+                    {isPending && (
+                      <p className="text-xs text-slate-500 mt-1">Submitted for review. You will be notified.</p>
+                    )}
                   </div>
                 </div>
-                {cert.signed_url && (
-                  <a href={cert.signed_url} target="_blank" rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 flex items-center gap-1">
-                    <FileText className="w-3 h-3" /> View
-                  </a>
-                )}
+                <div className="flex items-center gap-2">
+                  {cert.signed_url && (
+                    <a href={cert.signed_url} target="_blank" rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs hover:bg-slate-600 flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> View
+                    </a>
+                  )}
+                  {isRejected && (
+                    <button onClick={() => setShowUpload(true)}
+                      className="px-3 py-1.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg text-xs hover:bg-purple-500/30 flex items-center gap-1">
+                      <Upload className="w-3 h-3" /> Upload Replacement
+                    </button>
+                  )}
+                </div>
               </div>
+              {/* Rejection reason */}
+              {isRejected && cert.rejection_reason && (
+                <div className="mt-3 px-3 py-2 bg-red-500/5 border border-red-500/20 rounded-lg">
+                  <p className="text-xs text-red-400">
+                    <span className="font-medium">Reason:</span> {cert.rejection_reason}
+                  </p>
+                </div>
+              )}
             </div>
-          ))}
+          )})}
         </div>
       ) : (
         <div className="text-center py-16 bg-slate-800/30 rounded-xl border border-slate-700/50">

@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
       )
     }
     const { email, password, alias, role } = parsed.data
+    // Moderator accounts cannot be created through public signup.
+    // This is enforced by the Zod schema above: z.enum(['buyer', 'vendor'])
 
     // Check email uniqueness
     const existingEmail = await prisma.user.findUnique({ where: { email } })

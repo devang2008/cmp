@@ -17,7 +17,10 @@ export default function DashboardRedirectPage() {
       router.push('/login')
       return
     }
-    router.push(role === 'vendor' ? '/dashboard/vendor' : '/dashboard/buyer')
+    router.push(
+      role === 'moderator' ? '/dashboard/moderator' :
+      role === 'vendor' ? '/dashboard/vendor' : '/dashboard/buyer'
+    )
   }, [role, isLoading, isAuthenticated, router])
 
   return (

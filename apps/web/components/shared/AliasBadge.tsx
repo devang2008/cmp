@@ -4,7 +4,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import { Shield, UserCheck, Crown } from 'lucide-react'
+import { Shield, UserCheck, Crown, Eye } from 'lucide-react'
 import type { UserRole } from '@/types'
 
 interface AliasBadgeProps {
@@ -33,6 +33,11 @@ const roleConfig: Record<
     icon: Crown,
     label: 'Admin',
     variant: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+  },
+  moderator: {
+    icon: Eye,
+    label: 'Moderator',
+    variant: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
   },
 }
 

@@ -10,7 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
 import {
   Shield, Home, Search, FileText, ClipboardList, MessageSquare,
-  BadgeCheck, Star, Handshake, Menu, X, LogOut, ChevronRight
+  BadgeCheck, Star, Handshake, Menu, X, LogOut, ChevronRight,
+  Users, Scale, ScrollText, Activity
 } from "lucide-react";
 
 const BUYER_NAV = [
@@ -32,6 +33,15 @@ const VENDOR_NAV = [
   { label: "Messages", href: "/dashboard/vendor/messages", icon: MessageSquare },
 ];
 
+const MODERATOR_NAV = [
+  { label: "Dashboard", href: "/dashboard/moderator", icon: Home },
+  { label: "Certifications", href: "/dashboard/moderator/certifications", icon: BadgeCheck },
+  { label: "Users", href: "/dashboard/moderator/users", icon: Users },
+  { label: "Disputes", href: "/dashboard/moderator/disputes", icon: Scale },
+  { label: "Audit Log", href: "/dashboard/moderator/audit-log", icon: ScrollText },
+  { label: "Actions", href: "/dashboard/moderator/actions", icon: Activity },
+];
+
 export default function DashboardLayout({
   children,
 }: {
@@ -50,9 +60,12 @@ export default function DashboardLayout({
   }, [isLoading, isAuthenticated]);
 
   // Determine nav based on role (with pathname fallback while role loads)
+  const isModerator = role ? role === "moderator" : pathname.startsWith("/dashboard/moderator");
   const isVendor = role ? role === "vendor" : pathname.startsWith("/dashboard/vendor");
-  const navItems = isVendor ? VENDOR_NAV : BUYER_NAV;
-  const roleLabel = isVendor ? "Vendor" : "Buyer";
+  const navItems = isModerator ? MODERATOR_NAV : isVendor ? VENDOR_NAV : BUYER_NAV;
+  const roleLabel = isModerator ? "Moderator" : isVendor ? "Vendor" : "Buyer";
+  const roleColor = isModerator ? "bg-amber-400" : isVendor ? "bg-purple-400" : "bg-cyan-400";
+  const roleDashBase = isModerator ? "/dashboard/moderator" : isVendor ? "/dashboard/vendor" : "/dashboard/buyer";
 
   const handleLogout = async () => {
     await signOut();
@@ -99,7 +112,7 @@ export default function DashboardLayout({
           {/* Role indicator */}
           <div className="px-4 pt-4 pb-2">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50">
-              <div className={`w-2 h-2 rounded-full ${isVendor ? 'bg-purple-400' : 'bg-cyan-400'}`} />
+              <div className={`w-2 h-2 rounded-full ${roleColor}`} />
               <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{roleLabel} Dashboard</span>
             </div>
           </div>
@@ -108,7 +121,10 @@ export default function DashboardLayout({
           <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
               const isActive = pathname === item.href ||
-                (item.href !== `/dashboard/${isVendor ? 'vendor' : 'buyer'}` && pathname.startsWith(item.href));
+                (item.href !== roleDashBase && pathname.startsWith(item.href));
+              const activeAccent = isModerator
+                ? "bg-amber-500/10 text-amber-400 border-l-2 border-amber-400 -ml-[2px] pl-[14px]"
+                : "bg-cyan-500/10 text-cyan-400 border-l-2 border-cyan-400 -ml-[2px] pl-[14px]";
               return (
                 <Link
                   key={item.href}
@@ -116,7 +132,7 @@ export default function DashboardLayout({
                   onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     isActive
-                      ? "bg-cyan-500/10 text-cyan-400 border-l-2 border-cyan-400 -ml-[2px] pl-[14px]"
+                      ? activeAccent
                       : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
                   }`}
                 >

@@ -72,6 +72,26 @@ export async function middleware(request: NextRequest) {
       // /dashboard alone → redirect to correct dashboard
       if (pathname === '/dashboard') {
         const redirectUrl = request.nextUrl.clone()
+        if (role === 'moderator') {
+          redirectUrl.pathname = '/dashboard/moderator'
+        } else if (role === 'vendor') {
+          redirectUrl.pathname = '/dashboard/vendor'
+        } else {
+          redirectUrl.pathname = '/dashboard/buyer'
+        }
+        return NextResponse.redirect(redirectUrl)
+      }
+
+      // Moderator trying to access buyer/vendor routes → redirect to moderator dashboard
+      if (role === 'moderator' && (pathname.startsWith('/dashboard/buyer') || pathname.startsWith('/dashboard/vendor'))) {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/dashboard/moderator'
+        return NextResponse.redirect(redirectUrl)
+      }
+
+      // Non-moderator trying to access moderator routes → redirect to their dashboard
+      if (role !== 'moderator' && pathname.startsWith('/dashboard/moderator')) {
+        const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = role === 'vendor' ? '/dashboard/vendor' : '/dashboard/buyer'
         return NextResponse.redirect(redirectUrl)
       }

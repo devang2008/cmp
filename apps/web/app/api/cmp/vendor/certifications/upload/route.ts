@@ -7,10 +7,7 @@ import { getSessionFromRequest } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
 
-const CERT_SCORES: Record<string, number> = {
-  OSCP: 20, CISSP: 20, CISM: 18, CEH: 15, GPEN: 15,
-  GWAPT: 14, ISO27001: 12, CompTIA_Security: 10, eJPT: 8, other: 5
-}
+// Removed: CERT_SCORES auto-scoring replaced by moderator review
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,10 +60,10 @@ export async function POST(request: NextRequest) {
     // URL to access the file
     const file_url = `/api/cmp/files/certifications/${filename}`
 
-    // Calculate verification score
-    const verification_score = CERT_SCORES[cert_type] || 5
+    // Removed: auto-verify replaced by moderator review
+    // verification_score is now set by moderator, not auto-calculated
 
-    // Save to database
+    // Save to database with pending review status
     const certification = await prisma.certification.create({
       data: {
         vendor_alias: session.alias,
@@ -74,7 +71,8 @@ export async function POST(request: NextRequest) {
         cert_type,
         file_url,
         verified: false,
-        verification_score
+        review_status: 'pending',
+        verification_score: 0
       }
     })
 
@@ -83,9 +81,30 @@ export async function POST(request: NextRequest) {
       data: {
         action_type: 'certification_uploaded',
         actor_alias: session.alias,
-        metadata: { cert_name, cert_type, verification_score }
+        metadata: { cert_name, cert_type }
       }
     })
+
+    // Notify vendor that cert is under review
+    await prisma.notification.create({
+      data: {
+        recipient_alias: session.alias,
+        type: 'cert_submitted',
+        content: `Your ${cert_name} certification has been submitted for moderator review. You will be notified once it is reviewed.`,
+        ref_id: certification.id
+      }
+    })
+
+    // Notify moderator room via Socket.IO for real-time queue update
+    const io = (global as any).io
+    if (io) {
+      io.to('moderator-room').emit('new-cert-pending', {
+        id: certification.id,
+        vendor_alias: session.alias,
+        cert_name,
+        cert_type
+      })
+    }
 
     return NextResponse.json({
       data: certification,

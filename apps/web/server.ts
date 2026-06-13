@@ -61,6 +61,11 @@ app.prepare().then(() => {
       socket.join(`notifications-${alias}`)
     })
 
+    // Moderator room — receives real-time alerts for new cert uploads
+    socket.on('join-moderator-room', () => {
+      socket.join('moderator-room')
+    })
+
     socket.on('disconnect', () => {})
   })
 
