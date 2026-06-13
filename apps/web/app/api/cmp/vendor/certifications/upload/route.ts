@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         cert_type,
         file_url,
         verified: false,
-        review_status: 'pending',
+        review_status: 'PENDING',
         verification_score: 0
       }
     })

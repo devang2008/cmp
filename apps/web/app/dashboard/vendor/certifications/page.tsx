@@ -108,9 +108,9 @@ export default function CertificationsPage() {
       ) : certs?.length > 0 ? (
         <div className="grid gap-4">
           {certs.map((cert: any) => {
-            const isPending = cert.review_status === 'pending'
-            const isApproved = cert.review_status === 'approved'
-            const isRejected = cert.review_status === 'rejected'
+            const isPending = cert.review_status === 'PENDING'
+            const isApproved = cert.review_status === 'APPROVED'
+            const isRejected = cert.review_status === 'REJECTED'
             return (
             <div key={cert.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
               <div className="flex items-center justify-between">

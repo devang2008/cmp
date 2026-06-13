@@ -47,7 +47,7 @@ export default async function VendorProfilePage({ params }: { params: Promise<{ 
     where: {
       vendor_alias: alias,
       verified: true,
-      review_status: 'approved',
+      review_status: 'APPROVED',
     }
   })
 
