@@ -6,15 +6,21 @@ import { Star, TrendingUp, Shield, CheckCircle, DollarSign, Clock, Award } from 
 const EVENT_ICONS: Record<string, any> = {
   deal_completed: CheckCircle,
   cert_verified: Shield,
+  cert_approved: Shield,
   proposal_accepted: TrendingUp,
   dispute_closed: Shield,
+  review_received: Star,
+  moderator_adjustment: Award,
 }
 
 const EVENT_COLORS: Record<string, string> = {
   deal_completed: 'text-emerald-400',
   cert_verified: 'text-purple-400',
+  cert_approved: 'text-purple-400',
   proposal_accepted: 'text-blue-400',
   dispute_closed: 'text-red-400',
+  review_received: 'text-amber-400',
+  moderator_adjustment: 'text-orange-400',
 }
 
 export default function TrustPage() {
@@ -64,12 +70,12 @@ export default function TrustPage() {
           </div>
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <Shield className="w-5 h-5 text-purple-400 mb-2" />
-            <p className="text-2xl font-bold text-white">{events?.items?.filter((e: any) => e.event_type === 'cert_verified')?.length ?? 0}</p>
+            <p className="text-2xl font-bold text-white">{events?.events?.filter((e: any) => e.event_type === 'cert_verified' || e.event_type === 'cert_approved')?.length ?? 0}</p>
             <p className="text-sm text-slate-400">Certs Verified</p>
           </div>
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
             <TrendingUp className="w-5 h-5 text-cyan-400 mb-2" />
-            <p className="text-2xl font-bold text-white">{events?.items?.length ?? 0}</p>
+            <p className="text-2xl font-bold text-white">{events?.events?.length ?? 0}</p>
             <p className="text-sm text-slate-400">Trust Events</p>
           </div>
         </div>
@@ -101,22 +107,23 @@ export default function TrustPage() {
       {/* Trust Event History */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Trust Event History</h2>
-        {eventsLoading || !events?.items ? (
+        {eventsLoading ? (
           <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="animate-pulse h-10 bg-slate-700 rounded" />)}</div>
-        ) : events.items.length > 0 ? (
+        ) : (events?.events?.length ?? 0) > 0 ? (
           <div className="divide-y divide-slate-700/50">
-            {events.items.map((event: any, i: number) => {
+            {events.events.map((event: any, i: number) => {
               const Icon = EVENT_ICONS[event.event_type] || Star
               const color = EVENT_COLORS[event.event_type] || 'text-slate-400'
+              const isPositive = event.score_delta > 0
               return (
-                <div key={i} className="flex items-center gap-3 py-3">
+                <div key={event.id || i} className="flex items-center gap-3 py-3">
                   <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
                   <div className="flex-1">
-                    <p className="text-sm text-white">{event.event_type?.replace(/_/g, ' ')}</p>
+                    <p className="text-sm text-white capitalize">{event.event_type?.replace(/_/g, ' ')}</p>
                     {event.deal_id && <p className="text-xs text-slate-500">Deal #{event.deal_id.slice(0, 8)}</p>}
                   </div>
-                  <span className={`text-sm font-medium ${event.delta > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {event.delta > 0 ? '+' : ''}{event.delta}
+                  <span className={`text-sm font-medium ${isPositive ? 'text-emerald-400' : event.score_delta === 0 ? 'text-slate-400' : 'text-red-400'}`}>
+                    {isPositive ? '+' : ''}{event.score_delta} pts
                   </span>
                   <span className="text-xs text-slate-500 w-24 text-right">{new Date(event.created_at).toLocaleDateString()}</span>
                 </div>
@@ -124,7 +131,10 @@ export default function TrustPage() {
             })}
           </div>
         ) : (
-          <p className="text-slate-500 text-sm">No trust events recorded yet. Complete your first deal to start building trust.</p>
+          <div className="text-center py-8">
+            <p className="text-slate-500 text-sm">No trust events recorded yet.</p>
+            <p className="text-slate-600 text-xs mt-1">Trust events are created when you complete deals, get certifications approved, or receive reviews.</p>
+          </div>
         )}
       </div>
     </div>
